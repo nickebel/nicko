@@ -37,7 +37,7 @@ Para contas e conteúdo reais, publique pelo **Cloudflare Pages** e conecte um b
 - Imagens de publicações, avatares e banners usam links externos; upload de arquivos não está incluído.
 - Não há verificação de e-mail, recuperação de senha, mensagens privadas, denúncias ou painel de moderação.
 - Para foto e banner, informe links diretos e públicos de imagens no editor de perfil. Não é necessário R2.
-- Execute a migração `migrations/0002_profile_customization.sql` no D1 para ativar banner e link pessoal.
+- Em bancos criados antes da versão atual, execute uma única vez as migrações `migrations/0002_profile_customization.sql` e `migrations/0003_post_controls.sql` no D1. Não repita migrações já aplicadas.
 - Antes de abrir a comunidade publicamente, implemente regras de uso, política de privacidade, exclusão de conta e ferramentas de moderação.
 - Verifique os limites e custos atuais do plano Cloudflare escolhido. Não há promessa de uso ilimitado gratuito.
 
