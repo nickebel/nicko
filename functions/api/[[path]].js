@@ -109,6 +109,23 @@ async function createSession(userId, env, request) {
 function requireOrigin(request) {
   return isSameOrigin(request) ? null : fail("Origem não autorizada.", 403);
 }
+async function fetchCommunityPosts(env, user, whereSql, params = [], orderSql = "p.created_at DESC") {
+  const result = await env.DB.prepare(
+    "SELECT p.id,p.user_id,p.content,p.image_url,p.created_at,p.archived_at,p.repost_of," +
+    "u.username,u.display_name,u.avatar_url," +
+    "original_user.username AS original_username,original_user.display_name AS original_display_name," +
+    "(SELECT COUNT(*) FROM likes l WHERE l.post_id=p.id) AS likes_count," +
+    "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id) AS comments_count," +
+    "CASE WHEN EXISTS(SELECT 1 FROM likes l2 WHERE l2.post_id=p.id AND l2.user_id=?) THEN 1 ELSE 0 END AS liked_by_me," +
+    "CASE WHEN EXISTS(SELECT 1 FROM bookmarks b WHERE b.post_id=p.id AND b.user_id=?) THEN 1 ELSE 0 END AS saved_by_me," +
+    "CASE WHEN p.user_id=? THEN 1 ELSE 0 END AS is_owner " +
+    "FROM posts p JOIN users u ON u.id=p.user_id " +
+    "LEFT JOIN posts original_post ON original_post.id=p.repost_of " +
+    "LEFT JOIN users original_user ON original_user.id=original_post.user_id " +
+    "WHERE " + whereSql + " ORDER BY " + orderSql + " LIMIT 60"
+  ).bind(user.id, user.id, user.id, ...params).all();
+  return result.results || [];
+}
 async function onRequest(context) {
   const { request, env } = context;
   const method = request.method.toUpperCase();
@@ -190,15 +207,28 @@ async function onRequest(context) {
       return json({ user: await currentUser(request, env) });
     }
     if (parts[0] === "feed" && method === "GET") {
-      const user = await currentUser(request, env);
-      const result = await env.DB.prepare(
-        "SELECT p.id,p.user_id,p.content,p.image_url,p.created_at,u.username,u.display_name,u.avatar_url," +
-        "(SELECT COUNT(*) FROM likes l WHERE l.post_id=p.id) AS likes_count," +
-        "(SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id) AS comments_count," +
-        "CASE WHEN ? IS NOT NULL AND EXISTS(SELECT 1 FROM likes l2 WHERE l2.post_id=p.id AND l2.user_id=?) THEN 1 ELSE 0 END AS liked_by_me " +
-        "FROM posts p JOIN users u ON u.id=p.user_id ORDER BY p.created_at DESC LIMIT 50"
-      ).bind(user ? user.id : null, user ? user.id : null).all();
-      return json({ posts: result.results || [] });
+      const user = await requireUser(request, env);
+      if (!user) return fail("Entre na sua conta para ver as publicações da comunidade.", 401);
+      const posts = await fetchCommunityPosts(env, user, "p.archived_at IS NULL");
+      return json({ posts });
+    }
+    if (parts[0] === "saved" && method === "GET") {
+      const user = await requireUser(request, env);
+      if (!user) return fail("Entre na sua conta para ver seus itens salvos.", 401);
+      const posts = await fetchCommunityPosts(env, user,
+        "p.archived_at IS NULL AND EXISTS(SELECT 1 FROM bookmarks b WHERE b.post_id=p.id AND b.user_id=?)",
+        [user.id],
+        "(SELECT b.saved_at FROM bookmarks b WHERE b.post_id=p.id AND b.user_id=?) DESC"
+      );
+      return json({ posts });
+    }
+    if (parts[0] === "archive" && method === "GET") {
+      const user = await requireUser(request, env);
+      if (!user) return fail("Entre na sua conta para ver seu arquivo.", 401);
+      const posts = await fetchCommunityPosts(env, user,
+        "p.user_id=? AND p.archived_at IS NOT NULL", [user.id], "p.archived_at DESC"
+      );
+      return json({ posts });
     }
     if (parts[0] === "posts" && parts.length === 1 && method === "POST") {
       const user = await requireUser(request, env);
@@ -222,7 +252,51 @@ async function onRequest(context) {
       else await env.DB.prepare("INSERT INTO likes (post_id,user_id,created_at) VALUES (?,?,?)").bind(postId, user.id, new Date().toISOString()).run();
       return json({ liked: !existing });
     }
+    if (parts[0] === "posts" && parts.length === 3 && parts[2] === "save" && method === "POST") {
+      const user = await requireUser(request, env);
+      if (!user) return fail("Entre na sua conta para salvar publicações.", 401);
+      const postId = parts[1];
+      const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND archived_at IS NULL").bind(postId).first();
+      if (!post) return fail("Publicação não encontrada.", 404);
+      const existing = await env.DB.prepare("SELECT post_id FROM bookmarks WHERE post_id=? AND user_id=?").bind(postId, user.id).first();
+      if (existing) await env.DB.prepare("DELETE FROM bookmarks WHERE post_id=? AND user_id=?").bind(postId, user.id).run();
+      else await env.DB.prepare("INSERT INTO bookmarks (post_id,user_id,saved_at) VALUES (?,?,?)").bind(postId, user.id, new Date().toISOString()).run();
+      return json({ saved: !existing });
+    }
+    if (parts[0] === "posts" && parts.length === 3 && parts[2] === "archive" && method === "POST") {
+      const user = await requireUser(request, env);
+      if (!user) return fail("Entre na sua conta para arquivar publicações.", 401);
+      const postId = parts[1], body = await readBody(request);
+      const post = await env.DB.prepare("SELECT id,user_id FROM posts WHERE id=?").bind(postId).first();
+      if (!post) return fail("Publicação não encontrada.", 404);
+      if (post.user_id !== user.id) return fail("Você só pode arquivar suas próprias publicações.", 403);
+      const archived = body.archived !== false;
+      await env.DB.prepare("UPDATE posts SET archived_at=? WHERE id=? AND user_id=?")
+        .bind(archived ? new Date().toISOString() : null, postId, user.id).run();
+      return json({ archived });
+    }
+    if (parts[0] === "posts" && parts.length === 3 && parts[2] === "repost" && method === "POST") {
+      const user = await requireUser(request, env);
+      if (!user) return fail("Entre na sua conta para republicar.", 401);
+      const original = await env.DB.prepare("SELECT id,content,image_url FROM posts WHERE id=? AND archived_at IS NULL").bind(parts[1]).first();
+      if (!original) return fail("Publicação não encontrada.", 404);
+      const id = crypto.randomUUID();
+      await env.DB.prepare("INSERT INTO posts (id,user_id,content,image_url,created_at,repost_of) VALUES (?,?,?,?,?,?)")
+        .bind(id, user.id, original.content, original.image_url, new Date().toISOString(), original.id).run();
+      return json({ ok: true, id }, 201);
+    }
+    if (parts[0] === "posts" && parts.length === 2 && method === "DELETE") {
+      const user = await requireUser(request, env);
+      if (!user) return fail("Entre na sua conta para apagar publicações.", 401);
+      const post = await env.DB.prepare("SELECT id,user_id FROM posts WHERE id=?").bind(parts[1]).first();
+      if (!post) return fail("Publicação não encontrada.", 404);
+      if (post.user_id !== user.id) return fail("Você só pode apagar suas próprias publicações.", 403);
+      await env.DB.prepare("DELETE FROM posts WHERE id=? AND user_id=?").bind(parts[1], user.id).run();
+      return json({ ok: true });
+    }
     if (parts[0] === "posts" && parts.length === 3 && parts[2] === "comments" && method === "GET") {
+      const user = await requireUser(request, env);
+      if (!user) return fail("Entre na sua conta para ver os comentários.", 401);
       const result = await env.DB.prepare(
         "SELECT c.id,c.content,c.created_at,u.username,u.display_name FROM comments c JOIN users u ON u.id=c.user_id WHERE c.post_id=? ORDER BY c.created_at ASC LIMIT 100"
       ).bind(parts[1]).all();
@@ -240,7 +314,9 @@ async function onRequest(context) {
       return json({ ok: true }, 201);
     }
     if (parts[0] === "users" && parts.length === 1 && method === "GET") {
-      const user = await currentUser(request, env), q = String(url.searchParams.get("q") || "").trim().toLowerCase().slice(0, 40);
+      const user = await requireUser(request, env);
+      if (!user) return fail("Entre na sua conta para descobrir pessoas.", 401);
+      const q = String(url.searchParams.get("q") || "").trim().toLowerCase().slice(0, 40);
       const extras = await profileExtras(env);
       const optionalColumns = (extras.banner ? ",u.banner_url" : "") + (extras.website ? ",u.website_url" : "");
       const result = await env.DB.prepare(
@@ -254,7 +330,9 @@ async function onRequest(context) {
       return json({ users: (result.results || []).map(row => ({ ...cleanUser(row), following: !!row.is_following })) });
     }
     if (parts[0] === "users" && parts.length === 2 && method === "GET") {
-      const viewer = await currentUser(request, env), name = parts[1];
+      const viewer = await requireUser(request, env);
+      if (!viewer) return fail("Entre na sua conta para ver perfis da comunidade.", 401);
+      const name = parts[1];
       const extras = await profileExtras(env);
       const optionalColumns = (extras.banner ? ",u.banner_url" : "") + (extras.website ? ",u.website_url" : "");
       const row = await env.DB.prepare(
