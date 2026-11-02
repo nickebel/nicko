@@ -88,6 +88,6 @@ Não é necessário criar bucket R2, adicionar binding `MEDIA` ou ativar assinat
 
 ## 8. Recursos de perfil
 
-Depois da migração D1 e do binding R2, a tela **Meu perfil → Editar perfil** permite alterar nome de exibição, @usuário exclusivo, foto, banner, biografia e link pessoal. Os nomes de usuário são únicos e comparados sem diferenciar maiúsculas e minúsculas. No cadastro, e-mail e nome de usuário também são protegidos por índices UNIQUE no D1.
+Depois da migração D1, a tela **Meu perfil → Editar perfil** permite alterar nome de exibição, @usuário exclusivo, foto, banner, biografia e link pessoal. Os nomes de usuário são únicos e comparados sem diferenciar maiúsculas e minúsculas. No cadastro, e-mail e nome de usuário também são protegidos por índices UNIQUE no D1.
 
 O formulário de login/cadastro inclui o botão **Mostrar/Ocultar** para conferir a senha digitada. A senha continua armazenada como hash derivado no servidor; não é possível recuperar a senha antiga em texto puro.
