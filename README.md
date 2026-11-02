@@ -6,7 +6,9 @@
 
 - Cadastro e login com sessão em cookie HttpOnly.
 - Perfil com nome de exibição, @usuário exclusivo, foto de perfil, banner, biografia e link pessoal.
-- Feed público de publicações.
+- Feed e perfis da comunidade visíveis somente para usuários autenticados.
+- Menu de publicação: salvar, republicar, arquivar e apagar (com controle de propriedade).
+- Área privada de publicações salvas e arquivo pessoal com restauração.
 - Curtidas e comentários.
 - Descoberta de usuários e seguir/deixar de seguir.
 - Modo demonstração local, para testar a interface sem configurar o banco.
@@ -20,7 +22,8 @@
 
 - `index.html`: interface responsiva e cliente da comunidade.
 - `functions/api/[[path]].js`: API de autenticação, perfis, feed e interações.
-- `schema.sql`: tabelas e índices do banco D1.
+- `schema.sql`: estrutura completa do banco D1 para instalações novas.
+- `migrations/0002_profile_customization.sql` e `migrations/0003_post_controls.sql`: atualizações para bancos existentes.
 - `DEPLOY.md`: instruções de publicação no Cloudflare Pages.
 
 ## Testar
