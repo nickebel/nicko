@@ -72,21 +72,19 @@ ALTER TABLE users ADD COLUMN website_url TEXT NOT NULL DEFAULT '';
 
 Não execute novamente depois que as colunas forem criadas. Essa migração preserva as contas já cadastradas.
 
-## 7. Ativar upload de fotos e banners com R2
+## 7. Usar fotos e banners sem R2
 
-A comunidade usa R2 para guardar imagens fora do banco SQL.
+Para manter o projeto sem depender de armazenamento adicional, fotos de perfil e banners são informados por **links diretos de imagens públicas**.
 
-1. No painel Cloudflare, abra **R2 Object Storage**.
-2. Crie um bucket chamado `nicko-community-media`.
-3. Abra **Workers & Pages → nicko → Settings → Bindings**.
-4. Clique em **Add → R2 bucket**.
-5. Em **Variable name**, informe exatamente `MEDIA`.
-6. Selecione o bucket `nicko-community-media` e o ambiente **Production**.
-7. Salve e faça um novo deploy.
+1. Hospede a imagem em um serviço de imagens de sua preferência.
+2. Copie o endereço direto do arquivo da imagem (por exemplo, um link que termina em `.jpg`, `.png` ou `.webp`).
+3. Abra **Meu perfil → Editar perfil** no Nicko Community.
+4. Cole o endereço nos campos **Link da foto de perfil** e **Link do banner / capa**.
+5. Confira a prévia e salve.
 
-O código envia as imagens para o R2 pelo servidor; as imagens são servidas pela rota `/api/media/...`, sem precisar tornar o bucket publicamente acessível por um domínio próprio.
+Os endereços precisam começar com `https://` ou `http://` e permitir acesso público direto. Links de páginas de visualização (em vez do arquivo de imagem) podem não funcionar. O site não envia arquivos nem armazena essas imagens; apenas guarda os endereços no D1. Se o serviço de hospedagem apagar ou tornar privada a imagem, ela deixará de aparecer.
 
-A interface aceita JPG, PNG, WebP, GIF e AVIF, com limite de 8 MB por imagem. Se o R2 ainda não estiver ligado, o site mostra uma mensagem explicando a configuração pendente.
+Não é necessário criar bucket R2, adicionar binding `MEDIA` ou ativar assinatura do R2.
 
 ## 8. Recursos de perfil
 
