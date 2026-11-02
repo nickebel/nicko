@@ -86,6 +86,29 @@ Os endereços precisam começar com `https://` ou `http://` e permitir acesso p�
 
 Não é necessário criar bucket R2, adicionar binding `MEDIA` ou ativar assinatura do R2.
 
+## 8. Adicionar arquivo, salvos, republicação e controle das publicações
+
+Para a base D1 que já existe, abra **D1 → nicko-community-db → Console** e execute uma única vez o conteúdo de `migrations/0003_post_controls.sql`.
+
+A migração adiciona:
+- `archived_at` e `repost_of` na tabela `posts`;
+- tabela `bookmarks` para publicações salvas;
+- índices para o arquivo e os salvos.
+
+Não execute essa migração novamente depois de bem-sucedida; ela não deve ser repetida porque usa `ALTER TABLE`.
+
+Depois de o deploy terminar, cada publicação terá um menu com:
+- **Salvar publicação** ou remover dos salvos;
+- **Republicar** no seu próprio perfil;
+- **Arquivar publicação** (somente publicações suas);
+- **Apagar publicação** (somente publicações suas).
+
+O menu **Salvos** mostra sua lista privada. O **Arquivo pessoal** mostra suas publicações arquivadas, com opção de restaurá-las. Publicações arquivadas deixam de aparecer no feed.
+
+## 9. Acesso restrito a membros
+
+Visitantes sem sessão veem somente a tela de entrada/cadastro. O feed, comentários, descoberta de pessoas, perfis e listas de salvos/arquivo exigem autenticação. A API também verifica a sessão; ocultar elementos na interface não é a única proteção.
+
 ## 8. Recursos de perfil
 
 Depois da migração D1, a tela **Meu perfil → Editar perfil** permite alterar nome de exibição, @usuário exclusivo, foto, banner, biografia e link pessoal. Os nomes de usuário são únicos e comparados sem diferenciar maiúsculas e minúsculas. No cadastro, e-mail e nome de usuário também são protegidos por índices UNIQUE no D1.
