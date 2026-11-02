@@ -245,7 +245,7 @@ async function onRequest(context) {
       const user = await requireUser(request, env);
       if (!user) return fail("Entre na sua conta para curtir.", 401);
       const postId = parts[1];
-      const post = await env.DB.prepare("SELECT id FROM posts WHERE id=?").bind(postId).first();
+      const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND archived_at IS NULL").bind(postId).first();
       if (!post) return fail("Publicação não encontrada.", 404);
       const existing = await env.DB.prepare("SELECT user_id FROM likes WHERE post_id=? AND user_id=?").bind(postId, user.id).first();
       if (existing) await env.DB.prepare("DELETE FROM likes WHERE post_id=? AND user_id=?").bind(postId, user.id).run();
@@ -297,6 +297,8 @@ async function onRequest(context) {
     if (parts[0] === "posts" && parts.length === 3 && parts[2] === "comments" && method === "GET") {
       const user = await requireUser(request, env);
       if (!user) return fail("Entre na sua conta para ver os comentários.", 401);
+      const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND archived_at IS NULL").bind(parts[1]).first();
+      if (!post) return fail("Publicação não encontrada.", 404);
       const result = await env.DB.prepare(
         "SELECT c.id,c.content,c.created_at,u.username,u.display_name FROM comments c JOIN users u ON u.id=c.user_id WHERE c.post_id=? ORDER BY c.created_at ASC LIMIT 100"
       ).bind(parts[1]).all();
@@ -305,7 +307,7 @@ async function onRequest(context) {
     if (parts[0] === "posts" && parts.length === 3 && parts[2] === "comments" && method === "POST") {
       const user = await requireUser(request, env);
       if (!user) return fail("Entre na sua conta para comentar.", 401);
-      const post = await env.DB.prepare("SELECT id FROM posts WHERE id=?").bind(parts[1]).first();
+      const post = await env.DB.prepare("SELECT id FROM posts WHERE id=? AND archived_at IS NULL").bind(parts[1]).first();
       if (!post) return fail("Publicação não encontrada.", 404);
       const body = await readBody(request), content = String(body.content || "").trim();
       if (!content || content.length > 500) return fail("O comentário precisa ter de 1 a 500 caracteres.");
