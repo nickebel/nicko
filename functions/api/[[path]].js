@@ -52,7 +52,6 @@ async function profileExtras(env) {
 function validProfileImage(value) {
   if (value == null || value === "") return true;
   if (typeof value !== "string" || value.length > 2048) return false;
-  if (/^\/api\/media\/[a-zA-Z0-9/_-]+\.(?:jpg|jpeg|png|webp|gif|avif)$/i.test(value)) return true;
   try {
     const parsed = new URL(value);
     return parsed.protocol === "https:" || parsed.protocol === "http:";
@@ -189,38 +188,6 @@ async function onRequest(context) {
       values.push(user.id);
       await env.DB.prepare("UPDATE users SET " + fields.join(",") + " WHERE id=?").bind(...values).run();
       return json({ user: await currentUser(request, env) });
-    }
-    if (parts[0] === "upload" && method === "POST") {
-      const user = await requireUser(request, env);
-      if (!user) return fail("Entre na sua conta para enviar imagens.", 401);
-      if (!env.MEDIA) return fail("O armazenamento de imagens ainda não está conectado. Configure um bucket R2 com o nome MEDIA e publique novamente.", 503);
-      const form = await request.formData();
-      const file = form.get("file"), kind = String(form.get("kind") || "");
-      if (!file || typeof file.arrayBuffer !== "function") return fail("Selecione uma imagem.");
-      if (!["avatar", "banner"].includes(kind)) return fail("Tipo de imagem inválido.");
-      if (file.size < 1 || file.size > 8 * 1024 * 1024) return fail("A imagem deve ter no máximo 8 MB.");
-      const types = {"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif","image/avif":"avif"};
-      const extension = types[file.type];
-      if (!extension) return fail("Formato não aceito. Use JPG, PNG, WebP, GIF ou AVIF.");
-      const key = "users/" + user.id + "/" + kind + "/" + Date.now() + "-" + randomHex(8) + "." + extension;
-      await env.MEDIA.put(key, await file.arrayBuffer(), {
-        httpMetadata: { contentType: file.type, cacheControl: "public, max-age=31536000, immutable" },
-        customMetadata: { owner: user.id, kind }
-      });
-      return json({ url: "/api/media/" + key }, 201);
-    }
-    if (parts[0] === "media" && parts.length >= 2 && method === "GET") {
-      if (!env.MEDIA) return fail("Armazenamento de imagens indisponível.", 503);
-      const key = parts.slice(1).join("/");
-      if (!/^users\/[a-zA-Z0-9-]+\/(?:avatar|banner)\/[a-zA-Z0-9-]+\.(?:jpg|png|webp|gif|avif)$/.test(key)) return fail("Imagem não encontrada.", 404);
-      const object = await env.MEDIA.get(key);
-      if (!object) return fail("Imagem não encontrada.", 404);
-      const headers = new Headers();
-      object.writeHttpMetadata(headers);
-      headers.set("ETag", object.httpEtag);
-      headers.set("Cache-Control", "public, max-age=31536000, immutable");
-      headers.set("X-Content-Type-Options", "nosniff");
-      return new Response(object.body, { headers });
     }
     if (parts[0] === "feed" && method === "GET") {
       const user = await currentUser(request, env);
