@@ -297,6 +297,7 @@ async function onRequest(context) {
         "(SELECT COUNT(*) FROM posts p WHERE p.user_id=u.id) AS post_count," +
         "CASE WHEN ? IS NOT NULL AND EXISTS(SELECT 1 FROM follows f2 WHERE f2.follower_id=? AND f2.following_id=u.id) THEN 1 ELSE 0 END AS is_following " +
         "FROM users u WHERE u.username=? COLLATE NOCASE"
+      ).bind(viewer ? viewer.id : null, viewer ? viewer.id : null, name).first();
       if (!row) return fail("Perfil não encontrado.", 404);
       return json({ user: { ...cleanUser(row), following: !!row.is_following, post_count: Number(row.post_count || 0) } });
     }
