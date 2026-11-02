@@ -59,3 +59,37 @@ Quando o site detectar a API e o D1, a faixa “Modo demonstração” desaparec
 - Não existe recuperação de senha nem verificação de e-mail nesta versão. Não use senhas importantes ou reutilizadas enquanto essas funções não forem adicionadas.
 - A versão inicial não possui painel de moderação. Faça testes com poucas pessoas antes de divulgar publicamente e estabeleça regras de comunidade e política de privacidade.
 - Confira os limites e a cobrança do plano Cloudflare da sua conta antes de disponibilizar para muitos usuários.
+
+
+## 6. Atualizar os campos de perfil
+
+Para habilitar banner e link pessoal, abra o Console SQL do banco D1 `nicko-community-db` e execute uma única vez o conteúdo de `migrations/0002_profile_customization.sql`:
+
+```sql
+ALTER TABLE users ADD COLUMN banner_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN website_url TEXT NOT NULL DEFAULT '';
+```
+
+Não execute novamente depois que as colunas forem criadas. Essa migração preserva as contas já cadastradas.
+
+## 7. Ativar upload de fotos e banners com R2
+
+A comunidade usa R2 para guardar imagens fora do banco SQL.
+
+1. No painel Cloudflare, abra **R2 Object Storage**.
+2. Crie um bucket chamado `nicko-community-media`.
+3. Abra **Workers & Pages → nicko → Settings → Bindings**.
+4. Clique em **Add → R2 bucket**.
+5. Em **Variable name**, informe exatamente `MEDIA`.
+6. Selecione o bucket `nicko-community-media` e o ambiente **Production**.
+7. Salve e faça um novo deploy.
+
+O código envia as imagens para o R2 pelo servidor; as imagens são servidas pela rota `/api/media/...`, sem precisar tornar o bucket publicamente acessível por um domínio próprio.
+
+A interface aceita JPG, PNG, WebP, GIF e AVIF, com limite de 8 MB por imagem. Se o R2 ainda não estiver ligado, o site mostra uma mensagem explicando a configuração pendente.
+
+## 8. Recursos de perfil
+
+Depois da migração D1 e do binding R2, a tela **Meu perfil → Editar perfil** permite alterar nome de exibição, @usuário exclusivo, foto, banner, biografia e link pessoal. Os nomes de usuário são únicos e comparados sem diferenciar maiúsculas e minúsculas. No cadastro, e-mail e nome de usuário também são protegidos por índices UNIQUE no D1.
+
+O formulário de login/cadastro inclui o botão **Mostrar/Ocultar** para conferir a senha digitada. A senha continua armazenada como hash derivado no servidor; não é possível recuperar a senha antiga em texto puro.
