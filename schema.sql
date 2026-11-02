@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT NOT NULL,
   bio TEXT NOT NULL DEFAULT '',
   avatar_url TEXT NOT NULL DEFAULT '',
+  banner_url TEXT NOT NULL DEFAULT '',
+  website_url TEXT NOT NULL DEFAULT '',
   password_hash TEXT NOT NULL,
   password_salt TEXT NOT NULL,
   created_at TEXT NOT NULL
