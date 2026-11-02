@@ -10,7 +10,7 @@
 - Curtidas e comentários.
 - Descoberta de usuários e seguir/deixar de seguir.
 - Modo demonstração local, para testar a interface sem configurar o banco.
-- API em Cloudflare Pages Functions com Cloudflare D1 e upload de imagens para Cloudflare R2.
+- API em Cloudflare Pages Functions com Cloudflare D1; fotos e banners usam links diretos de imagens públicas, sem R2.
 - Controle mostrar/ocultar senha no cadastro e login.
 - Favicon próprio.
 
@@ -29,9 +29,10 @@ Para contas e conteúdo reais, publique pelo **Cloudflare Pages** e conecte um b
 
 ## Limitações desta primeira versão
 
-- Imagens de publicações e avatares usam links externos; upload de arquivos ainda não está implementado.
+- Imagens de publicações, avatares e banners usam links externos; upload de arquivos não está incluído.
 - Não há verificação de e-mail, recuperação de senha, mensagens privadas, denúncias ou painel de moderação.
-- Para foto e banner, configure o binding R2 `MEDIA` e execute a migração `migrations/0002_profile_customization.sql` no D1.
+- Para foto e banner, informe links diretos e públicos de imagens no editor de perfil. Não é necessário R2.
+- Execute a migração `migrations/0002_profile_customization.sql` no D1 para ativar banner e link pessoal.
 - Antes de abrir a comunidade publicamente, implemente regras de uso, política de privacidade, exclusão de conta e ferramentas de moderação.
 - Verifique os limites e custos atuais do plano Cloudflare escolhido. Não há promessa de uso ilimitado gratuito.
 
