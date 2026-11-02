@@ -109,7 +109,7 @@ O menu **Salvos** mostra sua lista privada. O **Arquivo pessoal** mostra suas pu
 
 Visitantes sem sessão veem somente a tela de entrada/cadastro. O feed, comentários, descoberta de pessoas, perfis e listas de salvos/arquivo exigem autenticação. A API também verifica a sessão; ocultar elementos na interface não é a única proteção.
 
-## 8. Recursos de perfil
+## 10. Recursos de perfil
 
 Depois da migração D1, a tela **Meu perfil → Editar perfil** permite alterar nome de exibição, @usuário exclusivo, foto, banner, biografia e link pessoal. Os nomes de usuário são únicos e comparados sem diferenciar maiúsculas e minúsculas. No cadastro, e-mail e nome de usuário também são protegidos por índices UNIQUE no D1.
 
