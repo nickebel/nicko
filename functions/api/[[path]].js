@@ -123,7 +123,7 @@ async function onRequest(context) {
       const username = String(body.username || "").trim().toLowerCase();
       const password = String(body.password || "");
       const row = await env.DB.prepare("SELECT id,username,password_hash,password_salt FROM users WHERE username=? COLLATE NOCASE").bind(username).first();
-      if (!row || !(await makePassword(password, row.password_salt)).localeCompare(row.password_hash) === 0) {
+      if (!row || (await makePassword(password, row.password_salt)) !== row.password_hash) {
         return fail("Usuário ou senha incorretos.", 401);
       }
       const setCookie = await createSession(row.id, env, request);
