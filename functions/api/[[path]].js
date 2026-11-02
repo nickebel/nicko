@@ -315,7 +315,7 @@ async function onRequest(context) {
     return fail("Rota não encontrada.", 404);
   } catch (error) {
     const message = error && error.message ? error.message : "Erro interno.";
-    return fail(message.includes("UNIQUE") ? "Esse dado já está cadastrado." : "Ocorreu um erro interno. Tente novamente.", message.includes("UNIQUE") ? 409 : 500);
+    return fail(message.includes("UNIQUE") ? "Esse nome de usuário ou e-mail já está em uso. Escolha outro." : "Ocorreu um erro interno. Tente novamente.", message.includes("UNIQUE") ? 409 : 500);
   }
 }
 export { onRequest };
