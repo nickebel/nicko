@@ -80,7 +80,7 @@ async function createSession(userId, env, request) {
   const expires = new Date(Date.now() + SESSION_SECONDS * 1000).toISOString();
   await env.DB.prepare("INSERT INTO sessions (token_hash,user_id,expires_at,created_at) VALUES (?,?,?,?)")
     .bind(hash, userId, expires, new Date().toISOString()).run();
-  return cookieOptions(request, SESSION_SECONDS) + "; " + COOKIE + "=" + token;
+  return COOKIE + "=" + token + "; " + cookieOptions(request, SESSION_SECONDS);
 }
 function requireOrigin(request) {
   return isSameOrigin(request) ? null : fail("Origem não autorizada.", 403);
@@ -240,7 +240,7 @@ async function onRequest(context) {
     return fail("Rota não encontrada.", 404);
   } catch (error) {
     const message = error && error.message ? error.message : "Erro interno.";
-    return fail(message.includes("UNIQUE") ? "Esse dado já está cadastrado." : message, message.includes("UNIQUE") ? 409 : 500);
+    return fail(message.includes("UNIQUE") ? "Esse dado já está cadastrado." : "Ocorreu um erro interno. Tente novamente.", message.includes("UNIQUE") ? 409 : 500);
   }
 }
 export { onRequest };
