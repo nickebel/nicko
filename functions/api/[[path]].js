@@ -217,7 +217,7 @@ async function onRequest(context) {
       if (!user) return fail("Entre na sua conta para ver seus itens salvos.", 401);
       const posts = await fetchCommunityPosts(env, user,
         "p.archived_at IS NULL AND EXISTS(SELECT 1 FROM bookmarks b WHERE b.post_id=p.id AND b.user_id=?)",
-        [user.id],
+        [user.id, user.id],
         "(SELECT b.saved_at FROM bookmarks b WHERE b.post_id=p.id AND b.user_id=?) DESC"
       );
       return json({ posts });
@@ -339,7 +339,7 @@ async function onRequest(context) {
         "SELECT u.id,u.username,u.display_name,u.bio,u.avatar_url" + optionalColumns + "," +
         "(SELECT COUNT(*) FROM follows f WHERE f.following_id=u.id) AS followers," +
         "(SELECT COUNT(*) FROM follows f WHERE f.follower_id=u.id) AS following," +
-        "(SELECT COUNT(*) FROM posts p WHERE p.user_id=u.id) AS post_count," +
+        "(SELECT COUNT(*) FROM posts p WHERE p.user_id=u.id AND p.archived_at IS NULL) AS post_count," +
         "CASE WHEN ? IS NOT NULL AND EXISTS(SELECT 1 FROM follows f2 WHERE f2.follower_id=? AND f2.following_id=u.id) THEN 1 ELSE 0 END AS is_following " +
         "FROM users u WHERE u.username=? COLLATE NOCASE"
       ).bind(viewer ? viewer.id : null, viewer ? viewer.id : null, name).first();
