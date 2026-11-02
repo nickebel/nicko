@@ -40,8 +40,31 @@ function cleanUser(row) {
   return {
     id: row.id, username: row.username, display_name: row.display_name,
     bio: row.bio || "", avatar_url: row.avatar_url || "",
+    banner_url: row.banner_url || "", website_url: row.website_url || "",
     followers: Number(row.followers || 0), following: Number(row.following || 0)
   };
+}
+async function profileExtras(env) {
+  const info = await env.DB.prepare("PRAGMA table_info(users)").all();
+  const names = new Set((info.results || []).map(column => column.name));
+  return { banner: names.has("banner_url"), website: names.has("website_url") };
+}
+function validProfileImage(value) {
+  if (value == null || value === "") return true;
+  if (typeof value !== "string" || value.length > 2048) return false;
+  if (/^\/api\/media\/[a-zA-Z0-9/_-]+\.(?:jpg|jpeg|png|webp|gif|avif)$/i.test(value)) return true;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch { return false; }
+}
+function validWebsite(value) {
+  if (value == null || value === "") return true;
+  if (typeof value !== "string" || value.length > 500) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch { return false; }
 }
 async function readBody(request) {
   const length = Number(request.headers.get("Content-Length") || 0);
@@ -62,8 +85,10 @@ async function currentUser(request, env) {
   const token = getCookie(request, COOKIE);
   if (!token) return null;
   const hash = await sha256(token);
+  const extras = await profileExtras(env);
+  const optionalColumns = (extras.banner ? ",u.banner_url" : "") + (extras.website ? ",u.website_url" : "");
   const row = await env.DB.prepare(
-    "SELECT u.id,u.username,u.display_name,u.bio,u.avatar_url," +
+    "SELECT u.id,u.username,u.display_name,u.bio,u.avatar_url" + optionalColumns + "," +
     "(SELECT COUNT(*) FROM follows f WHERE f.following_id=u.id) AS followers," +
     "(SELECT COUNT(*) FROM follows f WHERE f.follower_id=u.id) AS following " +
     "FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?"
@@ -143,13 +168,59 @@ async function onRequest(context) {
       if (!user) return fail("Entre na sua conta para editar o perfil.", 401);
       const body = await readBody(request);
       const display = String(body.display_name ?? user.display_name).trim().slice(0, 50);
+      const username = String(body.username ?? user.username).trim().toLowerCase();
       const bio = String(body.bio ?? user.bio).trim().slice(0, 180);
       const avatar = body.avatar_url ?? user.avatar_url;
+      const banner = body.banner_url ?? user.banner_url;
+      const website = body.website_url ?? user.website_url;
       if (!display) return fail("O nome de exibição não pode ficar vazio.");
-      if (!validImage(avatar)) return fail("O link da foto precisa ser http ou https.");
-      await env.DB.prepare("UPDATE users SET display_name=?,bio=?,avatar_url=? WHERE id=?")
-        .bind(display, bio, avatar || "", user.id).run();
+      if (!/^[a-z0-9_.]{3,24}$/.test(username)) return fail("O @usuário deve ter de 3 a 24 caracteres: letras, números, ponto ou _.");
+      if (!validProfileImage(avatar) || !validProfileImage(banner)) return fail("A foto ou o banner precisa ser um arquivo enviado ou um link http/https válido.");
+      if (!validWebsite(website)) return fail("O link do site precisa começar com http:// ou https://.");
+      const duplicate = await env.DB.prepare("SELECT id FROM users WHERE username=? COLLATE NOCASE AND id<>?").bind(username, user.id).first();
+      if (duplicate) return fail("Esse nome de usuário já está em uso. Escolha outro.", 409);
+      const extras = await profileExtras(env);
+      if (body.banner_url !== undefined && !extras.banner) return fail("A atualização do banco para banner ainda não foi executada. Execute migrations/0002_profile_customization.sql no D1.");
+      if (body.website_url !== undefined && !extras.website) return fail("A atualização do banco para link do perfil ainda não foi executada. Execute migrations/0002_profile_customization.sql no D1.");
+      const fields = ["username=?", "display_name=?", "bio=?", "avatar_url=?"];
+      const values = [username, display, bio, avatar || ""];
+      if (extras.banner) { fields.push("banner_url=?"); values.push(banner || ""); }
+      if (extras.website) { fields.push("website_url=?"); values.push(website || ""); }
+      values.push(user.id);
+      await env.DB.prepare("UPDATE users SET " + fields.join(",") + " WHERE id=?").bind(...values).run();
       return json({ user: await currentUser(request, env) });
+    }
+    if (parts[0] === "upload" && method === "POST") {
+      const user = await requireUser(request, env);
+      if (!user) return fail("Entre na sua conta para enviar imagens.", 401);
+      if (!env.MEDIA) return fail("O armazenamento de imagens ainda não está conectado. Configure um bucket R2 com o nome MEDIA e publique novamente.", 503);
+      const form = await request.formData();
+      const file = form.get("file"), kind = String(form.get("kind") || "");
+      if (!file || typeof file.arrayBuffer !== "function") return fail("Selecione uma imagem.");
+      if (!["avatar", "banner"].includes(kind)) return fail("Tipo de imagem inválido.");
+      if (file.size < 1 || file.size > 8 * 1024 * 1024) return fail("A imagem deve ter no máximo 8 MB.");
+      const types = {"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif","image/avif":"avif"};
+      const extension = types[file.type];
+      if (!extension) return fail("Formato não aceito. Use JPG, PNG, WebP, GIF ou AVIF.");
+      const key = "users/" + user.id + "/" + kind + "/" + Date.now() + "-" + randomHex(8) + "." + extension;
+      await env.MEDIA.put(key, await file.arrayBuffer(), {
+        httpMetadata: { contentType: file.type, cacheControl: "public, max-age=31536000, immutable" },
+        customMetadata: { owner: user.id, kind }
+      });
+      return json({ url: "/api/media/" + key }, 201);
+    }
+    if (parts[0] === "media" && parts.length >= 2 && method === "GET") {
+      if (!env.MEDIA) return fail("Armazenamento de imagens indisponível.", 503);
+      const key = parts.slice(1).join("/");
+      if (!/^users\/[a-zA-Z0-9-]+\/(?:avatar|banner)\/[a-zA-Z0-9-]+\.(?:jpg|png|webp|gif|avif)$/.test(key)) return fail("Imagem não encontrada.", 404);
+      const object = await env.MEDIA.get(key);
+      if (!object) return fail("Imagem não encontrada.", 404);
+      const headers = new Headers();
+      object.writeHttpMetadata(headers);
+      headers.set("ETag", object.httpEtag);
+      headers.set("Cache-Control", "public, max-age=31536000, immutable");
+      headers.set("X-Content-Type-Options", "nosniff");
+      return new Response(object.body, { headers });
     }
     if (parts[0] === "feed" && method === "GET") {
       const user = await currentUser(request, env);
@@ -203,8 +274,10 @@ async function onRequest(context) {
     }
     if (parts[0] === "users" && parts.length === 1 && method === "GET") {
       const user = await currentUser(request, env), q = String(url.searchParams.get("q") || "").trim().toLowerCase().slice(0, 40);
+      const extras = await profileExtras(env);
+      const optionalColumns = (extras.banner ? ",u.banner_url" : "") + (extras.website ? ",u.website_url" : "");
       const result = await env.DB.prepare(
-        "SELECT u.id,u.username,u.display_name,u.bio,u.avatar_url," +
+        "SELECT u.id,u.username,u.display_name,u.bio,u.avatar_url" + optionalColumns + "," +
         "(SELECT COUNT(*) FROM follows f WHERE f.following_id=u.id) AS followers," +
         "(SELECT COUNT(*) FROM follows f WHERE f.follower_id=u.id) AS following," +
         "CASE WHEN ? IS NOT NULL AND EXISTS(SELECT 1 FROM follows f2 WHERE f2.follower_id=? AND f2.following_id=u.id) THEN 1 ELSE 0 END AS is_following " +
@@ -215,14 +288,15 @@ async function onRequest(context) {
     }
     if (parts[0] === "users" && parts.length === 2 && method === "GET") {
       const viewer = await currentUser(request, env), name = parts[1];
+      const extras = await profileExtras(env);
+      const optionalColumns = (extras.banner ? ",u.banner_url" : "") + (extras.website ? ",u.website_url" : "");
       const row = await env.DB.prepare(
-        "SELECT u.id,u.username,u.display_name,u.bio,u.avatar_url," +
+        "SELECT u.id,u.username,u.display_name,u.bio,u.avatar_url" + optionalColumns + "," +
         "(SELECT COUNT(*) FROM follows f WHERE f.following_id=u.id) AS followers," +
         "(SELECT COUNT(*) FROM follows f WHERE f.follower_id=u.id) AS following," +
         "(SELECT COUNT(*) FROM posts p WHERE p.user_id=u.id) AS post_count," +
         "CASE WHEN ? IS NOT NULL AND EXISTS(SELECT 1 FROM follows f2 WHERE f2.follower_id=? AND f2.following_id=u.id) THEN 1 ELSE 0 END AS is_following " +
         "FROM users u WHERE u.username=? COLLATE NOCASE"
-      ).bind(viewer ? viewer.id : null, viewer ? viewer.id : null, name).first();
       if (!row) return fail("Perfil não encontrado.", 404);
       return json({ user: { ...cleanUser(row), following: !!row.is_following, post_count: Number(row.post_count || 0) } });
     }
