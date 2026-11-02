@@ -11,7 +11,7 @@
 - Área privada de publicações salvas e arquivo pessoal com restauração.
 - Curtidas e comentários.
 - Descoberta de usuários e seguir/deixar de seguir.
-- Modo demonstração local, para testar a interface sem configurar o banco.
+- Modo demonstração local sem perfis ou publicações fictícias pré-carregadas; apenas dados criados localmente pelo próprio navegador.
 - API em Cloudflare Pages Functions com Cloudflare D1; fotos e banners usam links diretos de imagens públicas, sem R2.
 - Controle mostrar/ocultar senha no cadastro e login.
 - Botão de saída visível na barra superior.
