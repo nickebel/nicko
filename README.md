@@ -5,12 +5,14 @@
 ## Funcionalidades
 
 - Cadastro e login com sessão em cookie HttpOnly.
-- Perfil com nome de exibição, biografia e foto por URL.
+- Perfil com nome de exibição, @usuário exclusivo, foto de perfil, banner, biografia e link pessoal.
 - Feed público de publicações.
 - Curtidas e comentários.
 - Descoberta de usuários e seguir/deixar de seguir.
 - Modo demonstração local, para testar a interface sem configurar o banco.
-- API em Cloudflare Pages Functions com Cloudflare D1.
+- API em Cloudflare Pages Functions com Cloudflare D1 e upload de imagens para Cloudflare R2.
+- Controle mostrar/ocultar senha no cadastro e login.
+- Favicon próprio.
 
 ## Estrutura
 
@@ -29,6 +31,7 @@ Para contas e conteúdo reais, publique pelo **Cloudflare Pages** e conecte um b
 
 - Imagens de publicações e avatares usam links externos; upload de arquivos ainda não está implementado.
 - Não há verificação de e-mail, recuperação de senha, mensagens privadas, denúncias ou painel de moderação.
+- Para foto e banner, configure o binding R2 `MEDIA` e execute a migração `migrations/0002_profile_customization.sql` no D1.
 - Antes de abrir a comunidade publicamente, implemente regras de uso, política de privacidade, exclusão de conta e ferramentas de moderação.
 - Verifique os limites e custos atuais do plano Cloudflare escolhido. Não há promessa de uso ilimitado gratuito.
 
