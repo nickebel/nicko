@@ -27,11 +27,15 @@ CREATE TABLE IF NOT EXISTS posts (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   content TEXT NOT NULL CHECK(length(content) BETWEEN 1 AND 1000),
   image_url TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  archived_at TEXT,
+  repost_of TEXT REFERENCES posts(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_posts_user ON posts(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_posts_archive ON posts(user_id, archived_at, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_posts_repost ON posts(repost_of);
 
 CREATE TABLE IF NOT EXISTS likes (
   post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
@@ -59,3 +63,12 @@ CREATE TABLE IF NOT EXISTS follows (
 );
 
 CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
+
+CREATE TABLE IF NOT EXISTS bookmarks (
+  post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  saved_at TEXT NOT NULL,
+  PRIMARY KEY (post_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id, saved_at DESC);
