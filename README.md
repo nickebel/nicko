@@ -1,27 +1,37 @@
-# nicko.mp4 — Digital Space
+# Nicko Community
 
-Um pequeno universo digital para o perfil [@nicko_mp4](https://www.instagram.com/nicko_mp4/).
+**somewhere, not everywhere.** — uma comunidade digital inspirada na estética minimalista e azul-noite do perfil [@nicko_mp4](https://www.instagram.com/nicko_mp4/).
 
-## Visualizar localmente
+## Funcionalidades
 
-Abra `index.html` em um navegador moderno. O projeto não depende de bibliotecas externas nem de arquivos adicionais.
+- Cadastro e login com sessão em cookie HttpOnly.
+- Perfil com nome de exibição, biografia e foto por URL.
+- Feed público de publicações.
+- Curtidas e comentários.
+- Descoberta de usuários e seguir/deixar de seguir.
+- Modo demonstração local, para testar a interface sem configurar o banco.
+- API em Cloudflare Pages Functions com Cloudflare D1.
 
-## O que está incluído
+## Estrutura
 
-- Página inicial responsiva com estética minimalista em branco, preto e azul-noite.
-- Seções exploráveis: arquivo visual, notas e frequências.
-- Janelas interativas e pequenas mensagens escondidas.
-- Caixa demonstrativa de mensagens com armazenamento local no navegador.
+- `index.html`: interface responsiva e cliente da comunidade.
+- `functions/api/[[path]].js`: API de autenticação, perfis, feed e interações.
+- `schema.sql`: tabelas e índices do banco D1.
+- `DEPLOY.md`: instruções de publicação no Cloudflare Pages.
 
-## Importante sobre as mensagens
+## Testar
 
-A caixa de mensagens ainda é demonstrativa: os dados são guardados no `localStorage` do próprio navegador e **não são enviados ao proprietário do site**. Para receber mensagens de visitantes, será necessário conectar um backend ou serviço de formulários, com proteção contra spam e uma política de privacidade adequada.
+Ao abrir sem a API conectada, o site entra em **Modo demonstração**. Criações feitas nesse modo ficam apenas no armazenamento local daquele navegador e não são compartilhadas com outras pessoas.
 
-## Publicar com GitHub Pages
+Para contas e conteúdo reais, publique pelo **Cloudflare Pages** e conecte um banco D1 conforme `DEPLOY.md`. O GitHub Pages, sozinho, hospeda apenas os arquivos estáticos e não executa as funções da API.
 
-1. Abra **Settings → Pages** neste repositório.
-2. Em **Build and deployment**, selecione **Deploy from a branch**.
-3. Escolha a branch `main` e a pasta `/ (root)` e salve.
-4. Aguarde a publicação; o endereço aparecerá na própria página de configurações.
+## Limitações desta primeira versão
 
-O projeto é estático e não exige instalação de dependências.
+- Imagens de publicações e avatares usam links externos; upload de arquivos ainda não está implementado.
+- Não há verificação de e-mail, recuperação de senha, mensagens privadas, denúncias ou painel de moderação.
+- Antes de abrir a comunidade publicamente, implemente regras de uso, política de privacidade, exclusão de conta e ferramentas de moderação.
+- Verifique os limites e custos atuais do plano Cloudflare escolhido. Não há promessa de uso ilimitado gratuito.
+
+## Segurança
+
+As senhas do modo real são derivadas no servidor com PBKDF2; o navegador recebe um cookie de sessão HttpOnly, SameSite=Lax. Não coloque segredos ou senhas no repositório. Configure o binding D1 com o nome exato `DB`.
