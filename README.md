@@ -12,6 +12,8 @@
 - Modo demonstração local, para testar a interface sem configurar o banco.
 - API em Cloudflare Pages Functions com Cloudflare D1; fotos e banners usam links diretos de imagens públicas, sem R2.
 - Controle mostrar/ocultar senha no cadastro e login.
+- Botão de saída visível na barra superior.
+- Alternância entre modo claro e escuro, com preferência salva no navegador.
 - Favicon próprio.
 
 ## Estrutura
